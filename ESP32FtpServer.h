@@ -33,11 +33,10 @@
 #ifndef FTP_SERVERESP_H
 #define FTP_SERVERESP_H
 
-#include "LITTLEFS.h"
 #include <FS.h>
 #include <WiFiClient.h>
 
-#define FTP_SERVER_VERSION "FTP-2020-10-11"
+#define FTP_SERVER_VERSION "FTP-2020-10-12"
 
 #define FTP_CTRL_PORT      21           // Command port on wich server is listening  
 #define FTP_DATA_PORT_PASV 50009        // Data port in passive mode
@@ -49,21 +48,26 @@
 
 #define FTP_BUF_SIZE       4096         // 700 KByte/s download in AP mode, direct connection.
 
+#define FS_UNDEF           0
+#define FS_SPIFFS          1
+#define FS_LITTLEFS        2
+#define FS_SD_MMC          3
+
 
 class FtpServer {
   public:
     void    begin (String uname, String pword);
-    void    handleFTP ();
+    void    handleFTP (fs::FS &fs);
 
   private:
     bool    haveParameter ();
-    bool    makeExistsPath (char * path, char * param = NULL);
+    bool    makeExistsPath (fs::FS &fs, char * path, char * param = NULL);
     void    iniVariables ();
     void    clientConnected ();
     void    disconnectClient ();
     boolean userIdentity ();
     boolean userPassword ();
-    boolean processCommand ();
+    boolean processCommand (fs::FS &fs);
     boolean dataConnect ();
     boolean doRetrieve ();
     boolean doStore ();
