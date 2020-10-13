@@ -73,6 +73,7 @@ class FtpServer {
                          uint8_t * phour, uint8_t * pminute, uint8_t * second);
     char *  makeDateTimeStr (char * tstr, uint16_t date, uint16_t time);
     int8_t  readChar ();
+    String  fillSpaces (uint8_t len, String input_str);
 
     IPAddress  dataIp;                  // IP address of client for data
     WiFiClient client;

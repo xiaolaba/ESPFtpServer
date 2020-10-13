@@ -153,7 +153,8 @@ void FtpServer::clientConnected () {
   #endif
   client.println ("220-Welcome to FTP for ESP8266/ESP32");
   client.println ("220-By David Paiva");
-  client.println ("220 Version " + String (FTP_SERVER_VERSION));
+  client.println ("220-Version " + String (FTP_SERVER_VERSION));
+  client.println ("220 Put your ftp client in passive mode, and do not attempt more than one connection");
   iCL = 0;
 }
 
@@ -383,6 +384,11 @@ boolean FtpServer::processCommand (fs::FS &fs) {
       else {
         if (fs.remove (path)) {
           client.println ("250 Deleted " + String (parameters));
+          // silently recreate the directory if it vanished with the last file it contained
+          String directory = String (path).substring (0, String(path).lastIndexOf ("/"));
+          if (!fs.exists (directory.c_str())) {
+            fs.mkdir (directory.c_str());
+          }
         }
         else {
           client.println ("450 Can't delete " + String (parameters));
@@ -401,21 +407,21 @@ boolean FtpServer::processCommand (fs::FS &fs) {
       
       #ifdef ESP8266
       Dir dir = fs.openDir (cwdName);
-      if (!fs.exists (cwdName)) {
-      	client.println ("550 Can't open directory " + String(cwdName));
-      }
-      else {
-        while (dir.next ()) {
-          String fn, fs;
-          fn = dir.fileName ();
-          fn.remove (0, 1);
-          fs = String (dir.fileSize ());
-          data.println ("+r,s" + fs);
-          data.println (",\t" + fn );
-          nm ++;
+      while (dir.next ()) {
+        String fn, fs;
+        fn = dir.fileName ();
+        int pos = fn.lastIndexOf ("/"); //looking for the beginning of the file by the last "/"
+        fn.remove (0, pos + 1); //Delete everything up to and including the filename
+        fs = String (dir.fileSize ());
+        if (dir.isDirectory ()){
+          data.println ("01/01/2000  00:00    <DIR>         " + fn);
+        } 
+        else {
+          data.println ("01/01/2000  00:00    " + fillSpaces (14, String (fs)) + "  " + fn);
         }
-        client.println( "226 " + String(nm) + " matches total");
+        nm ++;
       }
+      client.println( "226 " + String(nm) + " matches total");
       #endif
       #ifdef ESP32
       File dir = fs.open (cwdName);
@@ -427,17 +433,17 @@ boolean FtpServer::processCommand (fs::FS &fs) {
         while (file) {
           String fn, fs;
           fn = file.name ();
-          int i = fn.lastIndexOf ("/") + 1;
-          fn.remove (0, i);
+          int pos = fn.lastIndexOf ("/"); //looking for the beginning of the file by the last "/"
+          fn.remove (0, pos + 1); //Delete everything up to and including the filename
           #ifdef FTP_DEBUG
           Serial.println ("-> " + fn);
           #endif
           fs = String (file.size ());
           if (file.isDirectory ()){
-            data.println ("01-01-2000  00:00AM <DIR> " + fn);
+            data.println ("01/01/2000  00:00    <DIR>         " + fn);
           } 
           else {
-            data.println ("01-01-2000  00:00AM " + fs + " " + fn);
+            data.println ("01/01/2000  00:00    " + fillSpaces (14, String (fs)) + "  " + fn);
           }
           nm ++;
           file = dir.openNextFile ();
@@ -469,21 +475,22 @@ boolean FtpServer::processCommand (fs::FS &fs) {
       #ifdef ESP8266
       Dir dir = fs.openDir (cwdName);
       char dtStr[15];
-      if (!fs.exists (cwdName)) {
-        client.println ( "550 Can't open directory " + String(parameters));
-      }
-      else {
-        while (dir.next ()) {
-          String fn,fs;
-          fn = dir.fileName ();
-          fn.remove (0, 1);
-          fs = String (dir.fileSize ());
+      while (dir.next ()) {
+        String fn, fs;
+        fn = dir.fileName ();
+        int pos = fn.lastIndexOf ("/"); //looking for the beginning of the file by the last "/"
+        fn.remove (0, pos + 1); //Delete everything up to and including the filename
+        fs = String (dir.fileSize ());
+        if (dir.isDirectory ()) {
+          data.println ("Type=dir;Modify=20000101000000; " + fn);
+        } 
+        else {
           data.println ("Type=file;Size=" + fs + ";"+"modify=20000101000000;" +" " + fn);
-          nm ++;
         }
-        client.println ("226-options: -a -l");
-        client.println("226 " + String(nm) + " matches total");
-      }      
+        nm ++;
+      }
+      client.println ("226-options: -a -l");
+      client.println("226 " + String(nm) + " matches total");
       #endif
       #ifdef ESP32
       File dir = fs.open (cwdName);
@@ -494,7 +501,7 @@ boolean FtpServer::processCommand (fs::FS &fs) {
       else {
         File file = dir.openNextFile ();
         while (file) {
-          String fn,fs;
+          String fn, fs;
           fn = file.name ();
           int pos = fn.lastIndexOf ("/"); //looking for the beginning of the file by the last "/"
           fn.remove (0, pos + 1); //Delete everything up to and including the filename
@@ -640,14 +647,14 @@ boolean FtpServer::processCommand (fs::FS &fs) {
     char path[FTP_CWD_SIZE];
     if (haveParameter () && makePath (path)) {
       if (fs.exists (path)) {
-        client.println ("521 Can't create \"" + String (parameters) + ", Directory exists");
+        client.println ("521 Can't create \"" + String (parameters) + "\", Directory exists");
       }
       else {
         if (fs.mkdir (path)) {
           client.println ("257 \"" + String (parameters) + "\" created");
         }
         else {
-          client.println ("550 Can't create \"" + String (parameters));
+          client.println ("550 Can't create \"" + String (parameters) + "\"");
         }
       }  
     }
@@ -666,7 +673,15 @@ boolean FtpServer::processCommand (fs::FS &fs) {
         client.println ("250 \"" + String (parameters) + "\" deleted");
       }
       else {
-        client.println ("550 Can't remove \"" + String (parameters) + "\". Directory not empty?");  
+      	if (fs.exists (path)) { // hack
+          client.println ("550 Can't remove \"" + String (parameters) + "\". Directory not empty?");  
+        }
+        else {
+          #ifdef FTP_DEBUG
+          Serial.println ("-> deleting " + String (parameters));
+          #endif
+          client.println ("250 \"" + String (parameters) + "\" deleted");
+        }
       }
     }
   }
@@ -736,6 +751,7 @@ boolean FtpServer::processCommand (fs::FS &fs) {
   else if (!strcmp (command, "FEAT")) {
     client.println ("211-Extensions supported:");
     client.println (" MLSD");
+    client.println (" MLST");
     client.println ("211 End.");
   }
   
@@ -761,6 +777,28 @@ boolean FtpServer::processCommand (fs::FS &fs) {
       }
       else {
         client.println ("213 " + String (file.size ()));
+        file.close ();
+      }
+    }
+  }
+  
+  //
+  //  MLST - Listing for Machine Processing (see RFC 3659)
+  //
+  else if (!strcmp (command, "MLST")) {
+    char path[FTP_CWD_SIZE];
+    if (strlen (parameters) == 0) {
+      client.println ("501 No file name");
+    }
+    else if (makePath (path)) {
+      file = fs.open (path, "r");
+      if (!file) {
+        client.println ("450 Can't open " + String (parameters));
+      }
+      else {
+        client.println ("250-Listing /UPDATES");
+        client.println (" Type=file;Size=" + String (file.size ()) + "Modify=20000101010000;create=20000101010000; " + String (file.name ()));
+        client.println ("250 End.");
         file.close ();
       }
     }
@@ -1060,4 +1098,14 @@ bool FtpServer::makeExistsPath (fs::FS &fs, char * path, char * param) {
   }
   client.println ("550 " + String (path) + " not found.");
   return false;
+}
+
+String FtpServer::fillSpaces (uint8_t length, String input) {
+  String output;
+  output = "";
+  while (output.length() < length - input.length()) {
+  	output += " ";
+  }
+  output += input;
+  return (output);
 }
