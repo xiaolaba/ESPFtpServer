@@ -28,6 +28,7 @@
 #ifdef ESP32
 #include <WiFi.h>
 #endif
+#include <time.h>
 
 
 WiFiServer ftpServer (FTP_CTRL_PORT);
@@ -66,7 +67,7 @@ void FtpServer::handleFTP (fs::FS &fs) {
   if ((int32_t) (millisDelay - millis ()) > 0) {
     return;
   }
-
+  
   if (ftpServer.hasClient ()) {
     #ifdef FTP_DEBUG
     Serial.println ("-> disconnecting client");
@@ -114,7 +115,7 @@ void FtpServer::handleFTP (fs::FS &fs) {
         cmdStatus = 0;
       }
     }
-    else if (cmdStatus == 5) {      // Ftp server waiting for user command
+    else if (cmdStatus == 5) {       // Ftp server waiting for user command
       if (!processCommand (fs)) {
         cmdStatus = 0;
       }
@@ -142,7 +143,7 @@ void FtpServer::handleFTP (fs::FS &fs) {
   }
   else if (cmdStatus > 2 && ! ((int32_t) (millisEndConnection - millis ()) > 0 )) {
 	client.println ("530 Timeout");
-    millisDelay = millis () + 200;    // delay of 200 ms
+    millisDelay = millis () + 200;   // delay of 200 ms
     cmdStatus = 0;
   }
 }
@@ -404,24 +405,31 @@ boolean FtpServer::processCommand (fs::FS &fs) {
     if (dataConnect ()) {
       client.println ("150 Accepted data connection");
       uint16_t nm = 0;
+      char buffer[80];
       
       #ifdef ESP8266
       Dir dir = fs.openDir (cwdName);
       while (dir.next ()) {
-        String fn, fs;
-        fn = dir.fileName ();
-        int pos = fn.lastIndexOf ("/"); //looking for the beginning of the file by the last "/"
-        fn.remove (0, pos + 1); //Delete everything up to and including the filename
-        fs = String (dir.fileSize ());
+        String fname, fsize;
+        fname = dir.fileName ();
+        time_t ftime = dir.fileTime ();
+        struct tm * ptm;
+        ptm = gmtime (&ftime);
+        int pos = fname.lastIndexOf ("/"); //looking for the beginning of the file by the last "/"
+        fname.remove (0, pos + 1); //Delete everything up to and including the filename
+        fsize = String (dir.fileSize ());
         if (dir.isDirectory ()){
-          data.println ("01/01/2000  00:00    <DIR>           " + fn);
+          sprintf (buffer, "%04d-%02d-%02d  %02d:%02d    <DIR>           %s", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, fname.c_str());
+          //data.println ("01/01/2000  00:00    <DIR>           " + fname);
         } 
         else {
-          data.println ("01/01/2000  00:00    " + fillSpaces (14, String (fs)) + "  " + fn);
+          sprintf (buffer, "%04d-%02d-%02d  %02d:%02d    %s  %s", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, fillSpaces (14, String (fsize)).c_str(), fname.c_str());
+          //data.println ("01/01/2000  00:00    " + fillSpaces (14, String (fsize)) + "  " + fname);
         }
+        data.println (buffer);
         nm ++;
       }
-      client.println( "226 " + String(nm) + " matches total");
+      client.println( "226 " + String (nm) + " matches total");
       #endif
       #ifdef ESP32
       File dir = fs.open (cwdName);
@@ -431,20 +439,24 @@ boolean FtpServer::processCommand (fs::FS &fs) {
       else {
         File file = dir.openNextFile ();
         while (file) {
-          String fn, fs;
-          fn = file.name ();
-          int pos = fn.lastIndexOf ("/"); //looking for the beginning of the file by the last "/"
-          fn.remove (0, pos + 1); //Delete everything up to and including the filename
+          String fname, fsize;
+          fname = file.name ();
+          time_t ftime = file.getLastWrite ();
+          struct tm * ptm;
+          ptm = gmtime (&ftime);
+          int pos = fname.lastIndexOf ("/"); //looking for the beginning of the file by the last "/"
+          fname.remove (0, pos + 1); //Delete everything up to and including the filename
           #ifdef FTP_DEBUG
-          Serial.println ("-> " + fn);
+          Serial.println ("-> " + fname);
           #endif
-          fs = String (file.size ());
+          fsize = String (file.size ());   
           if (file.isDirectory ()){
-            data.println ("01/01/2000  00:00    <DIR>           " + fn);
+          	sprintf (buffer, "%04d-%02d-%02d  %02d:%02d    <DIR>           %s", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, fname);
           } 
           else {
-            data.println ("01/01/2000  00:00    " + fillSpaces (14, String (fs)) + "  " + fn);
-          }
+          	sprintf (buffer, "%04d-%02d-%02d  %02d:%02d    %s  %s", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, fillSpaces (14, String (fsize)).c_str(), fname);
+          }           
+          data.println (buffer);
           nm ++;
           file = dir.openNextFile ();
         }
