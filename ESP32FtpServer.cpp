@@ -1,11 +1,11 @@
 /*
- * FTP SERVER FOR ESP32
+ * FTP SERVER FOR ESP32/ESP8266
  * based on FTP Server for Arduino Due and Ethernet shield (W5100) or WIZ820io (W5200)
  * based on Jean-Michel Gallego's work
  * modified to work with esp8266 SPIFFS by David Paiva david@nailbuster.com
  * 2017: modified by @robo8080 (ported to ESP32 and SD)
- * 2019: modified by @fa1ke5 
- * 2020: modified by @jmwislez (ported to LITTLEFS)
+ * 2019: modified by @fa1ke5 (use SD card in SD_MMC mode (No SD lib, SD_MMC lib), and added fully fuctional passive mode ftp server)
+ * 2020: modified by @jmwislez (support generic FS, and re-introduced ESP8266)
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -22,7 +22,13 @@
 
 
 #include "ESP32FtpServer.h"
+#ifdef ESP8266
+#include <ESP8266WiFi.h>
+#endif
+#ifdef ESP32
 #include <WiFi.h>
+#endif
+
 
 WiFiServer ftpServer (FTP_CTRL_PORT);
 WiFiServer dataServer (FTP_DATA_PORT_PASV);
@@ -145,7 +151,7 @@ void FtpServer::clientConnected () {
   #ifdef FTP_DEBUG
   Serial.println ("-> client connected");
   #endif
-  client.println ("220-Welcome to FTP for ESP32");
+  client.println ("220-Welcome to FTP for ESP8266/ESP32");
   client.println ("220-By David Paiva");
   client.println ("220 Version " + String (FTP_SERVER_VERSION));
   iCL = 0;
@@ -392,6 +398,26 @@ boolean FtpServer::processCommand (fs::FS &fs) {
     if (dataConnect ()) {
       client.println ("150 Accepted data connection");
       uint16_t nm = 0;
+      
+      #ifdef ESP8266
+      Dir dir = fs.openDir (cwdName);
+      if (!fs.exists (cwdName)) {
+      	client.println ("550 Can't open directory " + String(cwdName));
+      }
+      else {
+        while (dir.next ()) {
+          String fn, fs;
+          fn = dir.fileName ();
+          fn.remove (0, 1);
+          fs = String (dir.fileSize ());
+          data.println ("+r,s" + fs);
+          data.println (",\t" + fn );
+          nm ++;
+        }
+        client.println( "226 " + String(nm) + " matches total");
+      }
+      #endif
+      #ifdef ESP32
       File dir = fs.open (cwdName);
       if ((!dir) || (!dir.isDirectory ())) {
         client.println ("550 Can't open directory " + String (cwdName));
@@ -417,11 +443,12 @@ boolean FtpServer::processCommand (fs::FS &fs) {
           file = dir.openNextFile ();
         }
         client.println ("226 " + String (nm) + " matches total");
-        data.stop ();
-        #ifdef FTP_DEBUG
-        Serial.println ("-> client disconnected from dataserver");
-        #endif
-      }  
+      }
+      #endif
+      data.stop ();
+      #ifdef FTP_DEBUG
+      Serial.println ("-> client disconnected from dataserver");
+      #endif
     }
     else {
       client.println ("425 No data connection");
@@ -439,6 +466,26 @@ boolean FtpServer::processCommand (fs::FS &fs) {
     else {
       client.println ("150 Accepted data connection");
       uint16_t nm = 0;
+      #ifdef ESP8266
+      Dir dir = fs.openDir (cwdName);
+      char dtStr[15];
+      if (!fs.exists (cwdName)) {
+        client.println ( "550 Can't open directory " + String(parameters));
+      }
+      else {
+        while (dir.next ()) {
+          String fn,fs;
+          fn = dir.fileName ();
+          fn.remove (0, 1);
+          fs = String (dir.fileSize ());
+          data.println ("Type=file;Size=" + fs + ";"+"modify=20000101000000;" +" " + fn);
+          nm ++;
+        }
+        client.println ("226-options: -a -l");
+        client.println("226 " + String(nm) + " matches total");
+      }      
+      #endif
+      #ifdef ESP32
       File dir = fs.open (cwdName);
       char dtStr[15];
       if (!fs.exists (cwdName)) {
@@ -464,6 +511,7 @@ boolean FtpServer::processCommand (fs::FS &fs) {
         client.println ("226-options: -a -l");
         client.println ("226 " + String (nm) + " matches total");
       }
+      #endif
       data.stop ();
       #ifdef FTP_DEBUG
       Serial.println ("-> client disconnected from dataserver");
@@ -481,6 +529,20 @@ boolean FtpServer::processCommand (fs::FS &fs) {
     else {
       client.println ("150 Accepted data connection");
       uint16_t nm = 0;
+      #ifdef ESP8266
+      Dir dir = fs.openDir (cwdName);
+      if (!fs.exists (cwdName)) {
+        client.println ("550 Can't open directory " + String (parameters));
+      }
+      else {
+        while (dir.next ()) {
+          data.println (dir.fileName ());
+          nm ++;
+        }
+        client.println ("226 " + String(nm) + " matches total");
+      }
+      #endif
+      #ifdef ESP32
       File dir = fs.open (cwdName);
       if (!fs.exists (cwdName)) {
         client.println ("550 Can't open directory " + String (parameters));
@@ -494,6 +556,7 @@ boolean FtpServer::processCommand (fs::FS &fs) {
         }
         client.println ("226 " + String (nm) + " matches total");
       }
+      #endif
       data.stop ();
       #ifdef FTP_DEBUG
       Serial.println ("-> client disconnected from dataserver");
