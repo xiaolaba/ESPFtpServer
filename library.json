@@ -1,0 +1,21 @@
+{
+  "name": "ESP32FtpServer",
+  "keywords": "ftp, littlefs, spiffs, esp32, esp8266",
+  "description": "ESP32FtpServer implements a simple FTP server (passive mode, only one connection at a time) on ESP8266 and ESP32, for any file system (SPIFFS/LittleFS/SD_MMC).",
+  "homepage": "https://github.com/jmwislez/ESP32FtpServer/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jmwislez/ESP32FtpServer.git"
+  },
+  "version": "0.1.0",
+  "authors": {
+    "name": "Jean-Marc Wislez",
+    "url": "https://github.com/jmwislez/"
+  },
+  "exclude": [
+    ".github",
+    "extras"
+  ],
+  "frameworks": "arduino",
+  "platforms": "esp8266,esp32"
+}
