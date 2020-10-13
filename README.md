@@ -8,6 +8,7 @@ The history of this code is as follows:
 * https://github.com/fa1ke5/ESP32_FTPServer_SD_MMC: use SD card in SD_MMC mode (No SD lib, SD_MMC lib). Added fully fuctional passive mode ftp server, browse dir, change dir, rename dir/file, delete dir/file, upload and download files, dirs.
 
 The current repository is forked from fa1ke5, and has the following changes:
-* use of any file system file system (like SPIFFS/LittleFS/SD_MMC) on ESP32 (yet to be thoroughly tested)
-* codebase to work for both ESP8266 and ESP32 (to be addressed soon)
+* use of any file system file system (like SPIFFS/LittleFS/SD_MMC)
+* codebase to work for both ESP8266 and ESP32
 * clean-up of code layout and English
+* addition of library description files
