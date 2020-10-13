@@ -414,7 +414,7 @@ boolean FtpServer::processCommand (fs::FS &fs) {
         fn.remove (0, pos + 1); //Delete everything up to and including the filename
         fs = String (dir.fileSize ());
         if (dir.isDirectory ()){
-          data.println ("01/01/2000  00:00    <DIR>         " + fn);
+          data.println ("01/01/2000  00:00    <DIR>           " + fn);
         } 
         else {
           data.println ("01/01/2000  00:00    " + fillSpaces (14, String (fs)) + "  " + fn);
@@ -440,7 +440,7 @@ boolean FtpServer::processCommand (fs::FS &fs) {
           #endif
           fs = String (file.size ());
           if (file.isDirectory ()){
-            data.println ("01/01/2000  00:00    <DIR>         " + fn);
+            data.println ("01/01/2000  00:00    <DIR>           " + fn);
           } 
           else {
             data.println ("01/01/2000  00:00    " + fillSpaces (14, String (fs)) + "  " + fn);
