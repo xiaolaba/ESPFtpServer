@@ -12,7 +12,7 @@
 #endif
 #include <WiFiClient.h>
 #include <time.h>
-#include "ESP32FtpServer.h"
+#include "ESPFtpServer.h"
 
 #if defined(FS_LITTLEFS)
 #ifdef ESP32
@@ -92,7 +92,7 @@ void setup (void) {
   //FS_ID.format ();
   if (FS_ID.begin ()) {
     Serial.println ("File system opened (" + String (FS_NAME) + ")");
-    ftpSrv.begin ("esp32", "esp32");    //username, password for ftp.  set ports in ESP32FtpServer.h  (default 21, 50009 for PASV)
+    ftpSrv.begin ("esp32", "esp32");    //username, password for ftp.  set ports in ESPFtpServer.h  (default 21, 50009 for PASV)
   }
   else {
     Serial.println ("File system could not be opened; ftp server will not work");
