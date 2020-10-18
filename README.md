@@ -1,4 +1,4 @@
-# ESP32FtpServer
+# ESPFtpServer
 
 The history of this code is as follows:
 
