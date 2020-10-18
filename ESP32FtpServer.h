@@ -28,7 +28,7 @@
  *******************************************************************************/
 
 // Uncomment to print debugging info to console
-#define FTP_DEBUG
+//#define FTP_DEBUG
 
 #ifndef FTP_SERVERESP_H
 #define FTP_SERVERESP_H

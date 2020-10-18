@@ -515,8 +515,8 @@ boolean FtpServer::processCommand (fs::FS &fs) {
         while (file) {
           String fn, fs;
           fn = file.name ();
-          int pos = fn.lastIndexOf ("/"); //looking for the beginning of the file by the last "/"
-          fn.remove (0, pos + 1); //Delete everything up to and including the filename
+          int pos = fn.lastIndexOf ("/"); // looking for the beginning of the file by the last "/"
+          fn.remove (0, pos + 1); // delete everything up to and including the filename
           fs = String (file.size ());
           if (file.isDirectory ()) {
             data.println ("Type=dir;Modify=20000101000000; " + fn);
