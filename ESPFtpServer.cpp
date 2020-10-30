@@ -203,6 +203,10 @@ boolean FtpServer::userPassword () {
 }
 
 boolean FtpServer::processCommand (fs::FS &fs) {
+  struct tm * ptm;
+  time_t ftime;
+  char buffer[80];
+
   ///////////////////////////////////////
   //                                   //
   //      ACCESS CONTROL COMMANDS      //
@@ -405,7 +409,6 @@ boolean FtpServer::processCommand (fs::FS &fs) {
     if (dataConnect ()) {
       client.println ("150 Accepted data connection");
       uint16_t nm = 0;
-      char buffer[80];
       
       #ifdef ESP8266
       Dir dir = fs.openDir (cwdName);
@@ -413,18 +416,15 @@ boolean FtpServer::processCommand (fs::FS &fs) {
         String fname, fsize;
         fname = dir.fileName ();
         time_t ftime = dir.fileTime ();
-        struct tm * ptm;
         ptm = gmtime (&ftime);
         int pos = fname.lastIndexOf ("/"); //looking for the beginning of the file by the last "/"
         fname.remove (0, pos + 1); //Delete everything up to and including the filename
         fsize = String (dir.fileSize ());
         if (dir.isDirectory ()){
           sprintf (buffer, "%04d-%02d-%02d  %02d:%02d    <DIR>           %s", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, fname.c_str());
-          //data.println ("01/01/2000  00:00    <DIR>           " + fname);
         } 
         else {
           sprintf (buffer, "%04d-%02d-%02d  %02d:%02d    %s  %s", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, fillSpaces (14, String (fsize)).c_str(), fname.c_str());
-          //data.println ("01/01/2000  00:00    " + fillSpaces (14, String (fsize)) + "  " + fname);
         }
         data.println (buffer);
         nm ++;
@@ -441,8 +441,7 @@ boolean FtpServer::processCommand (fs::FS &fs) {
         while (file) {
           String fname, fsize;
           fname = file.name ();
-          time_t ftime = file.getLastWrite ();
-          struct tm * ptm;
+          ftime = file.getLastWrite ();
           ptm = gmtime (&ftime);
           int pos = fname.lastIndexOf ("/"); //looking for the beginning of the file by the last "/"
           fname.remove (0, pos + 1); //Delete everything up to and including the filename
@@ -451,10 +450,10 @@ boolean FtpServer::processCommand (fs::FS &fs) {
           #endif
           fsize = String (file.size ());   
           if (file.isDirectory ()){
-          	sprintf (buffer, "%04d-%02d-%02d  %02d:%02d    <DIR>           %s", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, fname);
+          	sprintf (buffer, "%04u-%02u-%02u  %02u:%02u    <DIR>           %s", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, fname.c_str());
           } 
           else {
-          	sprintf (buffer, "%04d-%02d-%02d  %02d:%02d    %s  %s", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, fillSpaces (14, String (fsize)).c_str(), fname);
+          	sprintf (buffer, "%04u-%02u-%02u  %02d:%02u    %s  %s", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, fillSpaces (14, String (fsize)).c_str(), fname.c_str());
           }           
           data.println (buffer);
           nm ++;
@@ -493,12 +492,15 @@ boolean FtpServer::processCommand (fs::FS &fs) {
         int pos = fn.lastIndexOf ("/"); //looking for the beginning of the file by the last "/"
         fn.remove (0, pos + 1); //Delete everything up to and including the filename
         fs = String (dir.fileSize ());
+        ftime = dir.fileTime ();
+        ptm = gmtime (&ftime);
         if (dir.isDirectory ()) {
-          data.println ("Type=dir;Modify=20000101000000; " + fn);
+          sprintf (buffer, "Type=dir;Modify=%04u%02u%02u%02u%02u%02u; %s", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec, fn.c_str());
         } 
-        else {
-          data.println ("Type=file;Size=" + fs + ";"+"modify=20000101000000;" +" " + fn);
+        else {                 
+          sprintf (buffer, "Type=file;Size=%s;Modify=%04u%02u%02u%02u%02u%02u; %s", fs.c_str(), ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec, fn.c_str());
         }
+        data.println (buffer);
         nm ++;
       }
       client.println ("226-options: -a -l");
@@ -518,12 +520,15 @@ boolean FtpServer::processCommand (fs::FS &fs) {
           int pos = fn.lastIndexOf ("/"); // looking for the beginning of the file by the last "/"
           fn.remove (0, pos + 1); // delete everything up to and including the filename
           fs = String (file.size ());
+          ftime = file.getLastWrite ();
+          ptm = gmtime (&ftime);
           if (file.isDirectory ()) {
-            data.println ("Type=dir;Modify=20000101000000; " + fn);
+            sprintf (buffer, "Type=dir;Modify=%04u%02u%02u%02u%02u%02u; %s", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec, fn.c_str());
           } 
           else {
-            data.println ("Type=file;Size=" + fs + ";" + "modify=20000101000000;" + " " + fn);
+            sprintf (buffer, "Type=file;Size=%s;Modify=%04u%02u%02u%02u%02u%02u; %s", fs.c_str(), ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec, fn.c_str());
           } 
+          data.println (buffer);
           nm ++;
           file = dir.openNextFile ();
         }
@@ -763,7 +768,6 @@ boolean FtpServer::processCommand (fs::FS &fs) {
   else if (!strcmp (command, "FEAT")) {
     client.println ("211-Extensions supported:");
     client.println (" MLSD");
-    client.println (" MLST");
     client.println ("211 End.");
   }
   
@@ -789,28 +793,6 @@ boolean FtpServer::processCommand (fs::FS &fs) {
       }
       else {
         client.println ("213 " + String (file.size ()));
-        file.close ();
-      }
-    }
-  }
-  
-  //
-  //  MLST - Listing for Machine Processing (see RFC 3659)
-  //
-  else if (!strcmp (command, "MLST")) {
-    char path[FTP_CWD_SIZE];
-    if (strlen (parameters) == 0) {
-      client.println ("501 No file name");
-    }
-    else if (makePath (path)) {
-      file = fs.open (path, "r");
-      if (!file) {
-        client.println ("450 Can't open " + String (parameters));
-      }
-      else {
-        client.println ("250-Listing /UPDATES");
-        client.println (" Type=file;Size=" + String (file.size ()) + "Modify=20000101010000;create=20000101010000; " + String (file.name ()));
-        client.println ("250 End.");
         file.close ();
       }
     }
