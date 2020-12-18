@@ -848,18 +848,27 @@ boolean FtpServer::doRetrieve () {
   return false;
 }
 
-
 boolean FtpServer::doStore () {
-  if (data.connected ()) {
-    int16_t nb = data.readBytes ((uint8_t*) buf, FTP_BUF_SIZE);
+  // Avoid blocking by never reading more bytes than are available
+  int navail = data.available();
+  if (navail > 0) {
+    // And be sure not to overflow the buffer
+    if (navail > FTP_BUF_SIZE) {
+      navail = FTP_BUF_SIZE;
+    }
+    int16_t nb = data.read((uint8_t *)buf, navail);
     if (nb > 0) {
-      file.write ((uint8_t*) buf, nb);
+      file.write((uint8_t *)buf, nb);
       bytesTransferred += nb;
     }
+  }
+  if (!data.connected() && (navail <= 0)) {
+    closeTransfer();
+    return false;
+  }
+  else {
     return true;
   }
-  closeTransfer ();
-  return false;
 }
 
 void FtpServer::closeTransfer () {
